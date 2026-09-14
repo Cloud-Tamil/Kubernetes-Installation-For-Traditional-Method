@@ -384,6 +384,7 @@ We need three tools:
 | `kubeadm` | Creates and configures the Kubernetes cluster |
 | `kubelet` | Agent running on every node |
 | `kubectl` | CLI for managing Kubernetes |
+| `docker.io` | docker manage |
 
 Install on **both nodes**.
 
@@ -406,13 +407,16 @@ echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] \
 
 # 3. Install packages
 sudo apt-get update
-sudo apt-get install -y kubelet kubeadm kubectl
+sudo apt-get install -y kubelet kubeadm kubectl docker.io
 
 # 4. Pin versions to prevent accidental upgrades
 sudo apt-mark hold kubelet kubeadm kubectl
 
 # 5. Enable kubelet
 sudo systemctl enable --now kubelet
+
+# 6. Start docker
+sudo systemctl start docker && sudo systemctl enable docker 
 ```
 
 > 🔗 Always refer to: https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/
