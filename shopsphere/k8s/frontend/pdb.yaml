@@ -1,0 +1,14 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+
+metadata:
+  name: frontend-pdb
+  namespace: shopsphere
+
+spec:
+
+  minAvailable: 2
+
+  selector:
+    matchLabels:
+      app: shopsphere-frontend
