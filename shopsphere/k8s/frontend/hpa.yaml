@@ -1,4 +1,4 @@
-apiVersion: autoscaling/v2
+apiVersion: autoscaling/v1
 kind: HorizontalPodAutoscaler
 metadata:
   name: frontend-hpa
@@ -9,10 +9,8 @@ spec:
     kind: Deployment
     name: shopsphere-frontend
   minReplicas: 3
-  maxReplicas: 10
+  maxReplicas: 8
   behavior:
-    scaleUp:
-      stabilizationWindowSeconds: 0
     scaleDown:
       stabilizationWindowSeconds: 300
   metrics:
