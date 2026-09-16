@@ -1,0 +1,95 @@
+pipeline {
+    agent any
+
+    environment {
+        REGISTRY       = "YOUR_AWS_ACCOUNT_ID.dkr.ecr.ap-south-1.amazonaws.com"
+        BACKEND_IMAGE  = "shopsphere/backend"
+        FRONTEND_IMAGE = "shopsphere/frontend"
+        IMAGE_TAG      = "${env.BUILD_NUMBER}"
+        AWS_REGION     = "ap-south-1"
+    }
+
+    options {
+        timestamps()
+        timeout(time: 30, unit: 'MINUTES')
+        buildDiscarder(logRotator(numToKeepStr: '20'))
+    }
+
+    stages {
+        stage('Checkout') {
+            steps { checkout scm }
+        }
+
+        stage('Backend Tests') {
+            steps {
+                dir('app/backend') {
+                    sh 'npm ci'
+                    sh 'npm test'
+                }
+            }
+        }
+
+        stage('Frontend Tests') {
+            steps {
+                dir('app/frontend') {
+                    sh 'npm ci'
+                    sh 'npm test'
+                }
+            }
+        }
+
+        stage('Trivy Filesystem Scan') {
+            steps {
+                sh 'trivy fs --severity HIGH,CRITICAL --exit-code 1 --no-progress .'
+            }
+        }
+
+        stage('Build Backend Image') {
+            steps {
+                sh "docker build -t ${BACKEND_IMAGE}:${IMAGE_TAG} -f docker/backend/Dockerfile ."
+            }
+        }
+
+        stage('Build Frontend Image') {
+            steps {
+                sh "docker build -t ${FRONTEND_IMAGE}:${IMAGE_TAG} -f docker/frontend/Dockerfile ."
+            }
+        }
+
+        stage('Trivy Image Scan') {
+            steps {
+                sh "trivy image --severity HIGH,CRITICAL --exit-code 1 --no-progress ${BACKEND_IMAGE}:${IMAGE_TAG}"
+                sh "trivy image --severity HIGH,CRITICAL --exit-code 1 --no-progress ${FRONTEND_IMAGE}:${IMAGE_TAG}"
+            }
+        }
+
+        stage('Push to ECR') {
+            steps {
+                sh '''
+                    aws ecr get-login-password --region ${AWS_REGION} \
+                      | docker login --username AWS --password-stdin ${REGISTRY}
+
+                    docker tag ${BACKEND_IMAGE}:${IMAGE_TAG}  ${REGISTRY}/${BACKEND_IMAGE}:${IMAGE_TAG}
+                    docker tag ${FRONTEND_IMAGE}:${IMAGE_TAG} ${REGISTRY}/${FRONTEND_IMAGE}:${IMAGE_TAG}
+
+                    docker push ${REGISTRY}/${BACKEND_IMAGE}:${IMAGE_TAG}
+                    docker push ${REGISTRY}/${FRONTEND_IMAGE}:${IMAGE_TAG}
+                '''
+            }
+        }
+
+        stage('Update GitOps Repo') {
+            steps {
+                echo "In a real pipeline: clone shopsphere-gitops, "
+                echo "update kustomize image tag to ${IMAGE_TAG}, commit, push."
+                echo "Argo CD then reconciles the cluster automatically."
+            }
+        }
+    }
+
+    post {
+        always {
+            cleanWs()
+        }
+    }
+}
