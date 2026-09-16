@@ -5,6 +5,7 @@ metadata:
   labels:
     app.kubernetes.io/name: shopsphere
     environment: production
-    pod-security.kubernetes.io/enforce: restricted
+    # 'baseline' — 'restricted' blocks the official postgres image
+    pod-security.kubernetes.io/enforce: baseline
     pod-security.kubernetes.io/audit: restricted
     pod-security.kubernetes.io/warn: restricted
