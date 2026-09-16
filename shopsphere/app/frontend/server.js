@@ -11,12 +11,13 @@ app.get('/health', (req, res) => res.status(200).send('ok'));
 app.use('/api', createProxyMiddleware({
   target: BACKEND_URL,
   changeOrigin: true,
+  logLevel: 'warn',
 }));
 
-app.use(express.static(path.join(__dirname, 'dist')));
+app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 app.listen(PORT, () => console.log(`Frontend on ${PORT}`));
