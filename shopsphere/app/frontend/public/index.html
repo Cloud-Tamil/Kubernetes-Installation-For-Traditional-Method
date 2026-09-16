@@ -4,26 +4,24 @@
   <meta charset="UTF-8">
   <title>ShopSphere</title>
   <style>
-    body { font-family: system-ui, sans-serif; max-width: 800px; margin: 40px auto; }
+    body { font-family: system-ui, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; }
     h1 { color: #2c3e50; }
-    .card { border: 1px solid #ddd; border-radius: 8px; padding: 16px; margin: 12px 0; }
+    pre { background: #f4f4f4; padding: 16px; border-radius: 8px; overflow-x: auto; }
+    .err { color: #c0392b; }
   </style>
 </head>
 <body>
   <h1>🛒 ShopSphere</h1>
-  <div class="card">
-    <h2>Products</h2>
-    <div id="products">Loading...</div>
-  </div>
+  <p>Live product catalog from PostgreSQL (served via backend API).</p>
+  <pre id="out">Loading...</pre>
   <script>
     fetch('/api/products')
       .then(r => r.json())
-      .then(data => {
-        document.getElementById('products').textContent =
-          JSON.stringify(data, null, 2);
-      })
-      .catch(err => {
-        document.getElementById('products').textContent = 'Error: ' + err;
+      .then(d => { document.getElementById('out').textContent = JSON.stringify(d, null, 2); })
+      .catch(e => {
+        const el = document.getElementById('out');
+        el.className = 'err';
+        el.textContent = 'Error: ' + e.message;
       });
   </script>
 </body>
