@@ -1,4 +1,4 @@
-apiVersion: autoscaling/v2
+apiVersion: autoscaling/v1
 kind: HorizontalPodAutoscaler
 metadata:
   name: backend-hpa
@@ -9,20 +9,10 @@ spec:
     kind: Deployment
     name: shopsphere-backend
   minReplicas: 3
-  maxReplicas: 10
+  maxReplicas: 8
   behavior:
-    scaleUp:
-      stabilizationWindowSeconds: 0
-      policies:
-        - type: Percent
-          value: 100
-          periodSeconds: 15
     scaleDown:
       stabilizationWindowSeconds: 300
-      policies:
-        - type: Percent
-          value: 50
-          periodSeconds: 60
   metrics:
     - type: Resource
       resource:
@@ -30,9 +20,3 @@ spec:
         target:
           type: Utilization
           averageUtilization: 70
-    - type: Resource
-      resource:
-        name: memory
-        target:
-          type: Utilization
-          averageUtilization: 80
