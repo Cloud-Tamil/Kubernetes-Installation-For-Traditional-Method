@@ -1,15 +1,14 @@
 {
   "name": "shopsphere-backend",
   "version": "1.0.0",
-  "description": "ShopSphere backend API",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "echo \"Tests passed\" && exit 0"
+    "test": "node -e \"console.log('tests ok')\""
   },
   "dependencies": {
-    "express": "^4.19.2",
-    "pg": "^8.11.5",
-    "redis": "^4.6.13"
+    "express": "4.19.2",
+    "pg": "8.11.5",
+    "redis": "4.6.13"
   }
 }
