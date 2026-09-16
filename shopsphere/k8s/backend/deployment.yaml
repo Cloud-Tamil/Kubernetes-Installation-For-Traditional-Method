@@ -1,0 +1,115 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shopsphere-backend
+  namespace: shopsphere
+
+  labels:
+    app.kubernetes.io/name: shopsphere
+    app.kubernetes.io/component: backend
+
+spec:
+
+  replicas: 3
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+
+  selector:
+    matchLabels:
+      app: shopsphere-backend
+
+  template:
+
+    metadata:
+      labels:
+        app: shopsphere-backend
+        app.kubernetes.io/name: shopsphere
+        app.kubernetes.io/component: backend
+
+    spec:
+
+      terminationGracePeriodSeconds: 30
+
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+
+      containers:
+
+        - name: backend
+
+          image: shopsphere/backend:1.0.0
+
+          imagePullPolicy: IfNotPresent
+
+          ports:
+            - containerPort: 8080
+
+          envFrom:
+            - configMapRef:
+                name: shopsphere-config
+
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: shopsphere-secret
+                  key: POSTGRES_USER
+
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: shopsphere-secret
+                  key: POSTGRES_PASSWORD
+
+          resources:
+
+            requests:
+              cpu: 100m
+              memory: 128Mi
+
+            limits:
+              cpu: 500m
+              memory: 512Mi
+
+          startupProbe:
+
+            httpGet:
+              path: /health/startup
+              port: 8080
+
+            failureThreshold: 30
+            periodSeconds: 5
+
+          readinessProbe:
+
+            httpGet:
+              path: /health/ready
+              port: 8080
+
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+
+          livenessProbe:
+
+            httpGet:
+              path: /health/live
+              port: 8080
+
+            periodSeconds: 20
+            timeoutSeconds: 2
+            failureThreshold: 3
+
+          securityContext:
+
+            allowPrivilegeEscalation: false
+
+            capabilities:
+              drop:
+                - ALL
