@@ -1,0 +1,23 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: shopsphere-backend-role
+  namespace: shopsphere
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: shopsphere-backend-binding
+  namespace: shopsphere
+subjects:
+  - kind: ServiceAccount
+    name: shopsphere-backend
+    namespace: shopsphere
+roleRef:
+  kind: Role
+  name: shopsphere-backend-role
+  apiGroup: rbac.authorization.k8s.io
