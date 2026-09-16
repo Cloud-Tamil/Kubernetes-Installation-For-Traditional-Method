@@ -1,0 +1,11 @@
+# Only apply if your cluster does not already have a default StorageClass.
+# Local-path provisioner example (k3s/kind/minikube often provide one).
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: shopsphere-local
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "false"
+provisioner: rancher.io/local-path
+volumeBindingMode: WaitForFirstConsumer
+reclaimPolicy: Retain
