@@ -9,9 +9,10 @@ spec:
   selector:
     app: postgres
   ports:
-    - port: 5432
+    - name: postgres
+      port: 5432
       targetPort: 5432
-  type: ClusterIP
+  clusterIP: None      # headless — required for StatefulSet identity
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -29,17 +30,18 @@ spec:
       labels:
         app: postgres
     spec:
+      # Postgres image runs as uid/gid 999; fsGroup makes the PVC writable by it
       securityContext:
-        runAsNonRoot: true
-        runAsUser: 999
         fsGroup: 999
         seccompProfile:
           type: RuntimeDefault
       containers:
         - name: postgres
           image: postgres:16-alpine
+          imagePullPolicy: IfNotPresent
           ports:
-            - containerPort: 5432
+            - name: postgres
+              containerPort: 5432
           env:
             - name: POSTGRES_DB
               valueFrom:
@@ -67,61 +69,26 @@ spec:
               memory: 512Mi
           readinessProbe:
             exec:
-              command: ["pg_isready", "-U", "shopsphere"]
-            initialDelaySeconds: 5
+              command: ["pg_isready", "-U", "shopsphere", "-d", "shopsphere"]
+            initialDelaySeconds: 10
             periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
           livenessProbe:
             exec:
-              command: ["pg_isready", "-U", "shopsphere"]
-            initialDelaySeconds: 30
+              command: ["pg_isready", "-U", "shopsphere", "-d", "shopsphere"]
+            initialDelaySeconds: 60
             periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
           volumeMounts:
-            - name: postgres-storage
+            - name: data
               mountPath: /var/lib/postgresql/data
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop: ["ALL"]
   volumeClaimTemplates:
     - metadata:
-        name: postgres-storage
+        name: data
       spec:
         accessModes: ["ReadWriteOnce"]
         resources:
           requests:
             storage: 5Gi
----
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: postgres-init
-  namespace: shopsphere
-spec:
-  template:
-    spec:
-      restartPolicy: OnFailure
-      containers:
-        - name: init
-          image: postgres:16-alpine
-          env:
-            - name: PGPASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: shopsphere-secret
-                  key: POSTGRES_PASSWORD
-          command:
-            - /bin/sh
-            - -c
-            - |
-              until pg_isready -h postgres -U shopsphere; do sleep 2; done
-              psql -h postgres -U shopsphere -d shopsphere <<'SQL'
-              CREATE TABLE IF NOT EXISTS products (
-                id SERIAL PRIMARY KEY,
-                name TEXT NOT NULL,
-                price NUMERIC(10,2) NOT NULL
-              );
-              INSERT INTO products (name, price)
-              SELECT 'Sample Product ' || g, (g * 9.99)
-              FROM generate_series(1, 5) g
-              WHERE NOT EXISTS (SELECT 1 FROM products);
-              SQL
