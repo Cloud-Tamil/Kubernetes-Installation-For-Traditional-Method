@@ -3,14 +3,13 @@ kind: Service
 metadata:
   name: backend
   namespace: shopsphere
-
+  labels:
+    app: shopsphere-backend
 spec:
-
   selector:
     app: shopsphere-backend
-
   ports:
-    - port: 8080
-      targetPort: 8080
-
+    - name: http
+      port: 8080
+      targetPort: http
   type: ClusterIP
