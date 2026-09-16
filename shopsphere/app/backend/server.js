@@ -5,22 +5,26 @@ const redis = require('redis');
 const app = express();
 const PORT = process.env.BACKEND_PORT || 8080;
 
-// ---------- State ----------
 let startupComplete = false;
 let dbReady = false;
 let redisReady = false;
-let pool;
-let redisClient;
+let pool = null;
+let redisClient = null;
 
 // ---------- Database ----------
 async function initDatabase() {
   pool = new Pool({
     host: process.env.DATABASE_HOST || 'postgres',
     port: parseInt(process.env.DATABASE_PORT || '5432'),
-    user: process.env.POSTGRES_USER,
-    password: process.env.POSTGRES_PASSWORD,
+    user: process.env.POSTGRES_USER || 'shopsphere',
+    password: process.env.POSTGRES_PASSWORD || 'shopsphere',
     database: process.env.DATABASE_NAME || 'shopsphere',
     connectionTimeoutMillis: 5000,
+  });
+
+  pool.on('error', (err) => {
+    console.error('[DB] pool error:', err.message);
+    dbReady = false;
   });
 
   try {
@@ -30,7 +34,7 @@ async function initDatabase() {
     dbReady = true;
     console.log('[DB] Connected');
   } catch (err) {
-    console.error('[DB] Connection failed:', err.message);
+    console.error('[DB] Connect failed:', err.message);
     dbReady = false;
   }
 }
@@ -41,7 +45,7 @@ async function initRedis() {
     socket: {
       host: process.env.REDIS_HOST || 'redis',
       port: parseInt(process.env.REDIS_PORT || '6379'),
-      reconnectStrategy: (retries) => Math.min(retries * 100, 3000),
+      reconnectStrategy: (retries) => Math.min(retries * 200, 3000),
     },
   });
 
@@ -64,8 +68,8 @@ async function initRedis() {
 
 // ---------- Bootstrap ----------
 (async () => {
-  await initDatabase();
-  await initRedis();
+  try { await initDatabase(); } catch (e) { console.error(e); }
+  try { await initRedis(); }    catch (e) { console.error(e); }
   startupComplete = true;
   console.log('[Startup] Complete');
 })();
@@ -73,38 +77,28 @@ async function initRedis() {
 // ---------- Middleware ----------
 app.use(express.json());
 
-// ---------- Health endpoints ----------
-// Startup: has the app finished initialization?
+// ---------- Health ----------
 app.get('/health/startup', (req, res) => {
-  if (startupComplete) {
-    return res.status(200).json({ status: 'started' });
-  }
-  return res.status(503).json({ status: 'starting' });
+  res.status(startupComplete ? 200 : 503).json({ status: startupComplete ? 'started' : 'starting' });
 });
 
-// Readiness: can the app serve traffic? (DB and Redis reachable)
 app.get('/health/ready', async (req, res) => {
   if (!dbReady || !redisReady) {
-    return res.status(503).json({
-      status: 'not-ready',
-      db: dbReady,
-      redis: redisReady,
-    });
+    return res.status(503).json({ status: 'not-ready', db: dbReady, redis: redisReady });
   }
   try {
     await pool.query('SELECT 1');
-    return res.status(200).json({ status: 'ready' });
+    res.status(200).json({ status: 'ready' });
   } catch (err) {
-    return res.status(503).json({ status: 'not-ready', error: err.message });
+    res.status(503).json({ status: 'not-ready', error: err.message });
   }
 });
 
-// Liveness: is the process alive?
 app.get('/health/live', (req, res) => {
   res.status(200).json({ status: 'alive' });
 });
 
-// ---------- Business endpoints ----------
+// ---------- Business ----------
 app.get('/api/products', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM products LIMIT 50');
@@ -123,31 +117,17 @@ app.get('/api/cart/:userId', async (req, res) => {
   }
 });
 
-app.post('/api/cart/:userId', async (req, res) => {
-  try {
-    await redisClient.set(
-      `cart:${req.params.userId}`,
-      JSON.stringify(req.body.items || []),
-      { EX: 3600 }
-    );
-    res.json({ status: 'saved' });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
 // ---------- Server ----------
 const server = app.listen(PORT, () => {
-  console.log(`[Server] Listening on port ${PORT}`);
+  console.log(`[Server] Listening on ${PORT}`);
 });
 
 // ---------- Graceful shutdown ----------
-process.on('SIGTERM', async () => {
+process.on('SIGTERM', () => {
   console.log('[Shutdown] SIGTERM received');
   server.close(async () => {
-    try { await pool.end(); } catch (_) {}
-    try { await redisClient.quit(); } catch (_) {}
-    console.log('[Shutdown] Complete');
+    try { if (pool) await pool.end(); } catch (_) {}
+    try { if (redisClient) await redisClient.quit(); } catch (_) {}
     process.exit(0);
   });
   setTimeout(() => process.exit(1), 25000);
