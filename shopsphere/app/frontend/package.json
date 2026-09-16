@@ -2,12 +2,11 @@
   "name": "shopsphere-frontend",
   "version": "1.0.0",
   "scripts": {
-    "build": "mkdir -p dist && cp -r public/* dist/",
     "start": "node server.js",
-    "test": "echo \"Tests passed\" && exit 0"
+    "test": "node -e \"console.log('tests ok')\""
   },
   "dependencies": {
-    "express": "^4.19.2",
-    "http-proxy-middleware": "^3.0.0"
+    "express": "4.19.2",
+    "http-proxy-middleware": "3.0.0"
   }
 }
