@@ -1,0 +1,26 @@
+namespace: shopsphere
+
+backend:
+  image: shopsphere/backend
+  tag: "1.0.0"
+  replicas: 3
+  resources:
+    requests: { cpu: 100m, memory: 128Mi }
+    limits:   { cpu: 500m, memory: 512Mi }
+
+frontend:
+  image: shopsphere/frontend
+  tag: "1.0.0"
+  replicas: 3
+  resources:
+    requests: { cpu: 100m, memory: 128Mi }
+    limits:   { cpu: 500m, memory: 256Mi }
+
+ingress:
+  host: shopsphere.local
+
+postgres:
+  storage: 5Gi
+
+redis:
+  enabled: true
