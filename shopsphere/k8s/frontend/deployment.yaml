@@ -3,76 +3,84 @@ kind: Deployment
 metadata:
   name: shopsphere-frontend
   namespace: shopsphere
-
+  labels:
+    app.kubernetes.io/name: shopsphere
+    app.kubernetes.io/component: frontend
 spec:
-
   replicas: 3
-
+  revisionHistoryLimit: 5
   strategy:
     type: RollingUpdate
-
     rollingUpdate:
       maxUnavailable: 0
       maxSurge: 1
-
   selector:
     matchLabels:
       app: shopsphere-frontend
-
   template:
-
     metadata:
       labels:
         app: shopsphere-frontend
         app.kubernetes.io/name: shopsphere
         app.kubernetes.io/component: frontend
-
     spec:
-
+      serviceAccountName: shopsphere-frontend
       terminationGracePeriodSeconds: 30
-
       securityContext:
         runAsNonRoot: true
+        runAsUser: 1000
         seccompProfile:
           type: RuntimeDefault
-
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: shopsphere-frontend
+                topologyKey: kubernetes.io/hostname
       containers:
-
         - name: frontend
-
           image: shopsphere/frontend:1.0.0
-
+          imagePullPolicy: IfNotPresent
           ports:
-            - containerPort: 8080
-
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: shopsphere-config
           resources:
-
             requests:
               cpu: 100m
               memory: 128Mi
-
             limits:
               cpu: 500m
               memory: 256Mi
-
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            failureThreshold: 30
+            periodSeconds: 5
           readinessProbe:
             httpGet:
-              path: /
-              port: 8080
-
+              path: /health
+              port: http
             periodSeconds: 10
-
           livenessProbe:
             httpGet:
-              path: /
-              port: 8080
-
+              path: /health
+              port: http
             periodSeconds: 20
-
           securityContext:
-
             allowPrivilegeEscalation: false
-
+            readOnlyRootFilesystem: true
             capabilities:
-              drop:
-                - ALL
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
