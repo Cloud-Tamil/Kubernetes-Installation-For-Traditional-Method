@@ -3,6 +3,8 @@ kind: Service
 metadata:
   name: redis
   namespace: shopsphere
+  labels:
+    app: redis
 spec:
   selector:
     app: redis
@@ -10,7 +12,6 @@ spec:
     - port: 6379
       targetPort: 6379
   type: ClusterIP
-
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -19,24 +20,24 @@ metadata:
   namespace: shopsphere
 spec:
   replicas: 1
-
   selector:
     matchLabels:
       app: redis
-
   template:
     metadata:
       labels:
         app: redis
-
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: redis
           image: redis:7-alpine
-
           ports:
             - containerPort: 6379
-
           resources:
             requests:
               cpu: 50m
@@ -44,3 +45,17 @@ spec:
             limits:
               cpu: 250m
               memory: 256Mi
+          readinessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 15
+            periodSeconds: 30
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
