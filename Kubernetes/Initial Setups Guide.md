@@ -71,6 +71,7 @@ Windows Host
 ## 📋 Phases
 
 - [Phase 0 — VirtualBox VM Setup](#phase-0--virtualbox-vm-setup)
+- [Phase 0.5 — User Setup & sudo Privileges](#phase-05--user-setup--sudo-privileges)
 - [Phase 1 — VirtualBox Networking](#phase-1--virtualbox-networking)
 - [Phase 2 — Find Network Interfaces](#phase-2--find-network-interfaces)
 - [Phase 3 — Set Hostnames](#phase-3--set-hostnames)
@@ -105,6 +106,141 @@ Create two Ubuntu VMs in VirtualBox with the following resources each:
 | OS | Ubuntu 22.04 / 24.04 | Ubuntu 22.04 / 24.04 |
 
 > 💡 This is sufficient for a learning lab.
+
+---
+
+## Phase 0.5 — User Setup & sudo Privileges
+
+> 🔐 Run these steps on **both VMs** right after OS installation, before anything else.
+
+### 1. Check the Current User
+
+```bash
+whoami
+# Shows your current logged-in username
+
+id
+# Shows uid, gid, and all groups the user belongs to
+```
+
+### 2. Create a New User (if needed)
+
+If you installed Ubuntu with a root-only setup or want a dedicated lab user:
+
+```bash
+sudo adduser k8suser
+# Follow the prompts: set password, fill in details (or press Enter to skip)
+```
+
+> 💡 Replace `k8suser` with any username you prefer. This guide uses it as an example.
+
+### 3. Add User to the sudo Group
+
+```bash
+sudo usermod -aG sudo k8suser
+```
+
+Verify the user is in the sudo group:
+
+```bash
+groups k8suser
+# Expected output includes: k8suser : k8suser sudo
+```
+
+Or check with:
+
+```bash
+id k8suser
+# Expected: uid=1001(k8suser) gid=1001(k8suser) groups=1001(k8suser),27(sudo)
+```
+
+### 4. Switch to the New User
+
+```bash
+su - k8suser
+```
+
+Test sudo access:
+
+```bash
+sudo whoami
+# Expected: root
+```
+
+### 5. Grant Passwordless sudo (Optional — Lab Only)
+
+For a smoother lab experience, you can allow passwordless sudo. **Do not do this in production.**
+
+```bash
+sudo visudo
+```
+
+Add this line at the end of the file:
+
+```
+k8suser ALL=(ALL) NOPASSWD:ALL
+```
+
+Save and exit (`Ctrl+X` → `Y` → `Enter` in nano).
+
+Verify:
+
+```bash
+sudo apt update
+# Should run without asking for a password
+```
+
+### 6. Allow SSH Login for the New User (Optional)
+
+If you SSH into the VMs from your Windows host:
+
+```bash
+# On the VM — copy SSH authorized keys from root (if any)
+sudo mkdir -p /home/k8suser/.ssh
+sudo cp /root/.ssh/authorized_keys /home/k8suser/.ssh/ 2>/dev/null || true
+sudo chown -R k8suser:k8suser /home/k8suser/.ssh
+sudo chmod 700 /home/k8suser/.ssh
+sudo chmod 600 /home/k8suser/.ssh/authorized_keys
+```
+
+Or set a password and enable password auth in SSH:
+
+```bash
+sudo nano /etc/ssh/sshd_config
+# Set: PasswordAuthentication yes
+
+sudo systemctl restart ssh
+```
+
+### 7. Add User to Additional Useful Groups
+
+```bash
+# Allow reading system logs
+sudo usermod -aG adm k8suser
+
+# Allow using docker (if/when installed later for CI-CD phase)
+sudo usermod -aG docker k8suser
+
+# Verify all groups
+groups k8suser
+```
+
+### 8. Quick Reference — User Management Commands
+
+| Task | Command |
+|---|---|
+| Create a user | `sudo adduser <username>` |
+| Delete a user | `sudo deluser --remove-home <username>` |
+| Add to sudo group | `sudo usermod -aG sudo <username>` |
+| Add to any group | `sudo usermod -aG <group> <username>` |
+| List all groups for user | `groups <username>` |
+| List all users on system | `cut -d: -f1 /etc/passwd` |
+| List all sudoers | `grep -Po '^sudo.+:\K.*$' /etc/group` |
+| Switch to user | `su - <username>` |
+| Check current user | `whoami` |
+| Check user ID & groups | `id` |
+
+> ⚠️ **Security note:** Always use a non-root user with sudo for day-to-day lab work. Running everything as root is a bad habit — even in a home lab.
 
 ---
 
@@ -806,6 +942,8 @@ kubectl delete -f <file>.yaml
 
 | Issue | Cause | Fix |
 |---|---|---|
+| `sudo: command not found` | User not in sudo group | Run `sudo usermod -aG sudo <username>`, then log out and back in |
+| `Permission denied` running kubectl | Wrong user or missing kubeconfig | Ensure `$HOME/.kube/config` exists and is owned by your user |
 | `kubectl get nodes` shows `NotReady` | CNI not installed | Install Calico |
 | Worker can't join | Token expired | Run `kubeadm token create --print-join-command` on master |
 | kubelet not starting | Swap enabled | Run `sudo swapoff -a` and check `/etc/fstab` |
