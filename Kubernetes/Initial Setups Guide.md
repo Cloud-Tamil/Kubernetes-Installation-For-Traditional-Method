@@ -371,11 +371,13 @@ sudo systemctl enable --now kubelet
 Run on **k8s-master only** to verify prerequisites before bootstrapping:
 
 ```bash
+# 0. Verifiy host 
+ip -br addr
 # 1. Hostname verification
 [[ "$(hostname)" == "k8s-master" ]] && echo "Hostname: OK" || echo "Hostname: ERROR"
 
 # 2. IP binding verification
-ip -4 addr show enp0s8 | grep -q "192.168.56.109" && echo "Host IP: OK" || echo "Host IP: ERROR"
+ip -4 addr show enp0s8 | grep -q "192.168.56.114" && echo "Host IP: OK" || echo "Host IP: ERROR"
 
 # 3. Swap check
 [[ $(swapon --show | wc -l) -eq 0 ]] && echo "Swap Disabled: OK" || echo "Swap: ACTIVE"
