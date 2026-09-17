@@ -106,6 +106,15 @@ Allocate these minimum resources to each VM in VirtualBox:
 Run on **both VMs** after OS installation.
 
 ```bash
+# Initially need to add usermod for this user
+su - root
+
+usermod -aG sudo (username)
+
+# after reboot that entire system
+sudo whoami
+```
+```bash
 # Create user (replace k8suser with your preference)
 sudo adduser k8suser
 
