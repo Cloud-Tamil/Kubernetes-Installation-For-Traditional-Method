@@ -11,9 +11,9 @@ Host Machine (Windows / Linux / macOS)
      │
      │ Oracle VirtualBox
      │
-     ├── Ubuntu VM 1  ──  k8s-master / Control Plane  ──  192.168.56.109
+     ├── Ubuntu VM 1  ──  k8s-master / Control Plane  ──  192.168.56.113
      │
-     └── Ubuntu VM 2  ──  k8s-worker                 ──  192.168.56.110
+     └── Ubuntu VM 2  ──  k8s-worker                 ──  192.168.56.114
 ```
 
 ```text
@@ -23,7 +23,7 @@ Host Machine (Windows / Linux / macOS)
          │                           │
    Control Plane                Worker Node
     Ubuntu VM 1                 Ubuntu VM 2
-   192.168.56.109              192.168.56.110
+   192.168.56.113              192.168.56.114
          │                           │
    kube-apiserver                 kubelet
    etcd                           kube-proxy
@@ -151,8 +151,8 @@ Host Machine
    ├─ Adapter 1 (NAT) ─────── Internet access for updates/container images
    │
    └─ Adapter 2 (Host-Only) ── Static inter-node communication
-         ├── k8s-master: 192.168.56.109
-         └── k8s-worker: 192.168.56.110
+         ├── k8s-master: 192.168.56.113
+         └── k8s-worker: 192.168.56.114
 ```
 
 ---
@@ -173,8 +173,8 @@ Make sure your node IPs are predictable:
 
 | Node          | IP               | Interface |
 |---------------|------------------|-----------|
-| Control Plane | 192.168.56.109   | enp0s8    |
-| Worker        | 192.168.56.110   | enp0s8    |
+| Control Plane | 192.168.56.113   | enp0s8    |
+| Worker        | 192.168.56.114   | enp0s8    |
 
 > ℹ️ If your environment uses different IP addresses or interface names, adjust accordingly.
 
@@ -206,8 +206,8 @@ Run on **both VMs**:
 
 ```bash
 sudo tee -a /etc/hosts <<EOF
-192.168.56.109  k8s-master
-192.168.56.110  k8s-worker
+192.168.56.113  k8s-master
+192.168.56.114  k8s-worker
 EOF
 ```
 
@@ -503,8 +503,8 @@ kubectl get nodes -o wide
 
 ```text
 NAME         STATUS   ROLES           AGE     VERSION   INTERNAL-IP      OS-IMAGE             KERNEL-VERSION     CONTAINER-RUNTIME
-k8s-master   Ready    control-plane   10m     v1.32.x   192.168.56.109   Ubuntu 22.04.x LTS   x.x.x-generic      containerd://...
-k8s-worker   Ready    <none>          2m      v1.32.x   192.168.56.110   Ubuntu 22.04.x LTS   x.x.x-generic      containerd://...
+k8s-master   Ready    control-plane   10m     v1.32.x   192.168.56.113   Ubuntu 22.04.x LTS   x.x.x-generic      containerd://...
+k8s-worker   Ready    <none>          2m      v1.32.x   192.168.56.114   Ubuntu 22.04.x LTS   x.x.x-generic      containerd://...
 ```
 
 Verify that all control plane and system pods are running cleanly:
