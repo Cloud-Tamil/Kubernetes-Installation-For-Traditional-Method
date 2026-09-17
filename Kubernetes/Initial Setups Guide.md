@@ -13,7 +13,7 @@ Host Machine (Windows / Linux / macOS)
      │
      ├── Ubuntu VM 1  ──  k8s-master / Control Plane  ──  192.168.56.113
      │
-     └── Ubuntu VM 2  ──  k8s-worker                 ──  192.168.56.114
+     └── Ubuntu VM 2  ──  k8s-worker                  ──  192.168.56.114
 ```
 
 ```text
