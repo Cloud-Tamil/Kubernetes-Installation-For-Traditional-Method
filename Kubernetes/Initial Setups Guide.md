@@ -116,17 +116,17 @@ sudo whoami
 ```
 ```bash
 # Create user (replace k8suser with your preference)
-sudo adduser k8suser
+sudo adduser (username)
 
 # Add to the sudo group
-sudo usermod -aG sudo k8suser
+sudo usermod -aG sudo (username)
 
 # Optional: Enable passwordless sudo for smoother lab operations
 echo "k8suser ALL=(ALL) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/k8suser
-sudo chmod 0440 /etc/sudoers.d/k8suser
+sudo chmod 0440 /etc/sudoers.d/(username)
 
 # Switch to the new user
-su - k8suser
+su - (username)
 ```
 
 ---
