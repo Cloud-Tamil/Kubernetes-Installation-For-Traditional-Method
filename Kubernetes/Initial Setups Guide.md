@@ -111,13 +111,12 @@ Create two Ubuntu VMs in VirtualBox with the following resources each:
 
 ## Phase 2 — User Setup & sudo Privileges
 
+> 🔐 Run these steps on **both VMs** right after OS installation, before anything else.
+
+### Step 1 — Switch to root directly
 ```bash
 su - root
 ```
-
-### Step 1 — Switch to root directly
-
-> 🔐 Run these steps on **both VMs** right after OS installation, before anything else.
 
 ### 1. Check the Current User
 
