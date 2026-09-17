@@ -182,6 +182,8 @@ sudo adduser k8suser
 
 ```bash
 sudo usermod -aG sudo k8suser
+
+getent group
 ```
 
 Verify the user is in the sudo group:
