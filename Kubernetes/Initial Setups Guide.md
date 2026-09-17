@@ -94,7 +94,7 @@ Windows Host
 
 ---
 
-## Phase 0 — VirtualBox VM Setup
+## Phase 1 — VirtualBox VM Setup
 
 Create two Ubuntu VMs in VirtualBox with the following resources each:
 
@@ -109,7 +109,13 @@ Create two Ubuntu VMs in VirtualBox with the following resources each:
 
 ---
 
-## Phase 0.5 — User Setup & sudo Privileges
+## Phase 2 — User Setup & sudo Privileges
+
+```bash
+su - root
+```
+
+### Step 1 — Switch to root directly
 
 > 🔐 Run these steps on **both VMs** right after OS installation, before anything else.
 
