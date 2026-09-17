@@ -39,6 +39,38 @@ Windows Host
 
 ---
 
+## 📋 Table of Contents
+
+- [What You'll Learn](#-what-youll-learn)
+- [VM Requirements](#-vm-requirements)
+- [Phase 0 — VirtualBox VM Setup](#phase-0--virtualbox-vm-setup)
+- [Phase 0.5 — User Setup & sudo Privileges](#phase-05--user-setup--sudo-privileges)
+- [Phase 1 — VirtualBox Networking](#phase-1--virtualbox-networking)
+- [Phase 2 — Find Network Interfaces](#phase-2--find-network-interfaces)
+- [Phase 3 — Set Hostnames](#phase-3--set-hostnames)
+- [Phase 4 — Configure /etc/hosts](#phase-4--configure-etchosts)
+- [Phase 5 — Update Ubuntu](#phase-5--update-ubuntu)
+- [Phase 6 — Disable Swap](#phase-6--disable-swap)
+- [Phase 7 — Load Kernel Modules](#phase-7--load-kernel-modules)
+- [Phase 8 — Kubernetes Networking (sysctl)](#phase-8--kubernetes-networking-sysctl)
+- [Phase 9 — Install containerd](#phase-9--install-containerd)
+- [Phase 10 — Install Kubernetes Packages](#phase-10--install-kubernetes-packages)
+- [Phase 11 — Pre-flight Check Before Init](#phase-11--pre-flight-check-before-init)
+- [Phase 12 — Initialize Control Plane](#phase-12--initialize-control-plane)
+- [Phase 13 — Configure kubectl](#phase-13--configure-kubectl)
+- [Phase 14 — Install Calico CNI](#phase-14--install-calico-cni)
+- [Phase 15 — Join Worker Node](#phase-15--join-worker-node)
+- [Phase 16 — Verify the Cluster](#phase-16--verify-the-cluster)
+- [Phase 17 — Explore Cluster Info](#phase-17--explore-cluster-info)
+- [Phase 18 — Check System Pods](#phase-18--check-system-pods)
+- [Phase 19 — Kubernetes Architecture](#phase-19--kubernetes-architecture)
+- [What's Next](#-whats-next)
+- [Quick Reference — Common Commands](#-quick-reference--common-commands)
+- [Official References](#-official-references)
+- [Common Issues & Fixes](#-common-issues--fixes)
+
+---
+
 ## 🗺️ What You'll Learn
 
 | Category | Topics |
@@ -68,33 +100,7 @@ Windows Host
 
 ---
 
-## 📋 Phases
-
-- [Phase 0 — VirtualBox VM Setup](#phase-0--virtualbox-vm-setup)
-- [Phase 0.5 — User Setup & sudo Privileges](#phase-05--user-setup--sudo-privileges)
-- [Phase 1 — VirtualBox Networking](#phase-1--virtualbox-networking)
-- [Phase 2 — Find Network Interfaces](#phase-2--find-network-interfaces)
-- [Phase 3 — Set Hostnames](#phase-3--set-hostnames)
-- [Phase 4 — Configure /etc/hosts](#phase-4--configure-etchosts)
-- [Phase 5 — Update Ubuntu](#phase-5--update-ubuntu)
-- [Phase 6 — Disable Swap](#phase-6--disable-swap)
-- [Phase 7 — Load Kernel Modules](#phase-7--load-kernel-modules)
-- [Phase 8 — Kubernetes Networking (sysctl)](#phase-8--kubernetes-networking-sysctl)
-- [Phase 9 — Install containerd](#phase-9--install-containerd)
-- [Phase 10 — Install Kubernetes Packages](#phase-10--install-kubernetes-packages)
-- [Phase 11 — Pre-flight Check Before Init](#phase-11--pre-flight-check-before-init)
-- [Phase 12 — Initialize Control Plane](#phase-12--initialize-control-plane)
-- [Phase 13 — Configure kubectl](#phase-13--configure-kubectl)
-- [Phase 14 — Install Calico CNI](#phase-14--install-calico-cni)
-- [Phase 15 — Join Worker Node](#phase-15--join-worker-node)
-- [Phase 16 — Verify the Cluster](#phase-16--verify-the-cluster)
-- [Phase 17 — Explore Cluster Info](#phase-17--explore-cluster-info)
-- [Phase 18 — Check System Pods](#phase-18--check-system-pods)
-- [Phase 19 — Kubernetes Architecture](#phase-19--kubernetes-architecture)
-
----
-
-## Phase 1 — VirtualBox VM Setup
+## Phase 0 — VirtualBox VM Setup
 
 Create two Ubuntu VMs in VirtualBox with the following resources each:
 
@@ -109,35 +115,47 @@ Create two Ubuntu VMs in VirtualBox with the following resources each:
 
 ---
 
-## Phase 2 — User Setup & sudo Privileges
+## Phase 0.5 — User Setup & sudo Privileges
 
 > 🔐 Run these steps on **both VMs** right after OS installation, before anything else.
 
 ### Step 1 — Switch to root directly
+
 ```bash
 su - root
 ```
-### Step 2 — Now add your user to the sudo group (as root, no sudo needed)
+
+### Step 2 — Add your user to the sudo group (as root, no sudo needed)
+
 ```bash
 usermod -aG sudo liunx-2
 ```
+
 ### Step 3 — Verify
+
 ```bash
 groups liunx-2
 # Expected: liunx-2 : liunx-2 sudo
 ```
+
 ### Step 4 — Log out and back in (mandatory)
+
 Group changes only take effect after a fresh login:
+
 ```bash
 exit        # exit root
 exit        # exit liunx-2 session
 # Log back in as liunx-2
 ```
+
 ### Step 5 — Test sudo works
+
 ```bash
 sudo whoami
-# Expected: root 
+# Expected: root
 ```
+
+---
 
 ### 1. Check the Current User
 
@@ -969,7 +987,7 @@ kubectl delete -f <file>.yaml
 | Issue | Cause | Fix |
 |---|---|---|
 | `sudo: command not found` | User not in sudo group | Run `sudo usermod -aG sudo <username>`, then log out and back in |
-| `Permission denied` running kubectl | Wrong user or missing kubeconfig | Ensure `$HOME/.kube/config` exists and is owned by your user |
+| Permission denied running `kubectl` | Wrong user or missing kubeconfig | Ensure `$HOME/.kube/config` exists and is owned by your user |
 | `kubectl get nodes` shows `NotReady` | CNI not installed | Install Calico |
 | Worker can't join | Token expired | Run `kubeadm token create --print-join-command` on master |
 | kubelet not starting | Swap enabled | Run `sudo swapoff -a` and check `/etc/fstab` |
