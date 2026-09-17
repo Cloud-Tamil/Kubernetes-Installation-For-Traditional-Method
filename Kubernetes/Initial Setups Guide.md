@@ -234,7 +234,7 @@ sudo reboot
 After reboot, reconnect:
 
 ```bash
-su - k8suser
+su - k8-master
 ```
 
 ---
