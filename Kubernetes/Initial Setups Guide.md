@@ -404,9 +404,9 @@ sudo kubeadm init \
 Once the initialization routine completes, **save the printed `kubeadm join` block**. It will look like:
 
 ```bash
-kubeadm join 192.168.56.109:6443 \
-  --token <token> \
-  --discovery-token-ca-cert-hash sha256:<hash>
+kubeadm join 192.168.56.114:6443 \
+  --token ofthqj.krvipkj4n2333u4c --discovery-token-ca-cert-hash \
+  --discovery-token-ca-cert-hash sha256:71772e67b497697eb6c5fb250803c547472f18d14c38782beac5cb9e23ed98f0
 ```
 
 > ℹ️ If the token expires or is lost later, regenerate it at any time on `k8s-master` using:
