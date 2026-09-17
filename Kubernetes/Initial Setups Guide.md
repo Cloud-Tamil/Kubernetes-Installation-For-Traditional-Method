@@ -117,6 +117,27 @@ Create two Ubuntu VMs in VirtualBox with the following resources each:
 ```bash
 su - root
 ```
+### Step 2 — Now add your user to the sudo group (as root, no sudo needed)
+```bash
+usermod -aG sudo liunx-2
+```
+### Step 3 — Verify
+```bash
+groups liunx-2
+# Expected: liunx-2 : liunx-2 sudo
+```
+### Step 4 — Log out and back in (mandatory)
+Group changes only take effect after a fresh login:
+```bash
+exit        # exit root
+exit        # exit liunx-2 session
+# Log back in as liunx-2
+```
+### Step 5 — Test sudo works
+```bash
+sudo whoami
+# Expected: root 
+```
 
 ### 1. Check the Current User
 
