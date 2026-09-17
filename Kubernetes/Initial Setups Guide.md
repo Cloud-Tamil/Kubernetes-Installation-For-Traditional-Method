@@ -1,6 +1,6 @@
-# 🚀 Kubernetes Home Lab — VirtualBox + kubeadm + Calico
+# Kubernetes Home Lab — VirtualBox + kubeadm + Calico
 
-A step-by-step guide to building a real, production-like Kubernetes cluster on a Windows host using Oracle VirtualBox. This lab uses **kubeadm + containerd + Calico** — the same toolchain used in real-world administration.
+> A step-by-step guide to building a real, production-like Kubernetes cluster on a Windows host using Oracle VirtualBox. This lab uses **kubeadm + containerd + Calico** — the same toolchain used in real-world administration.
 
 ---
 
@@ -17,23 +17,25 @@ Windows Host
 ```
 
 ```
-                 Kubernetes Cluster
-                       │
-          ┌────────────┴────────────┐
-          │                         │
-   Control Plane                 Worker Node
-   Ubuntu VM 1                   Ubuntu VM 2
-   192.168.56.109                192.168.56.110
-          │                         │
-     kube-apiserver              kubelet
-     etcd                        kube-proxy
-     scheduler                   containerd
-     controller-manager
-     kubelet
-     kubectl
-          │
-          └──────── Calico Network ────────┘
+             Kubernetes Cluster
+                   │
+      ┌────────────┴────────────┐
+      │                         │
+ Control Plane               Worker Node
+ Ubuntu VM 1                 Ubuntu VM 2
+ 192.168.56.109              192.168.56.110
+      │                         │
+ kube-apiserver              kubelet
+ etcd                        kube-proxy
+ scheduler                   containerd
+ controller-manager
+ kubelet
+ kubectl
+      │
+      └──────── Calico Network ────────┘
 ```
+
+> ⚠️ **Lab vs. Production:** This is a single control plane setup — there is no HA. etcd runs as a single instance. It mirrors production tooling, not production resilience. For HA you'd need 3+ control planes with stacked or external etcd.
 
 ---
 
@@ -62,6 +64,8 @@ Windows Host
 | Control Plane | 2 cores | 4 GB | 30+ GB | Ubuntu Server/Desktop 22.04 or 24.04 |
 | Worker | 2 cores | 4 GB | 30+ GB | Ubuntu Server/Desktop 22.04 or 24.04 |
 
+> 💡 This is sufficient for a learning lab.
+
 ---
 
 ## 📋 Phases
@@ -77,7 +81,7 @@ Windows Host
 - [Phase 8 — Kubernetes Networking (sysctl)](#phase-8--kubernetes-networking-sysctl)
 - [Phase 9 — Install containerd](#phase-9--install-containerd)
 - [Phase 10 — Install Kubernetes Packages](#phase-10--install-kubernetes-packages)
-- [Phase 11 — Verify Container Runtime](#phase-11--verify-container-runtime)
+- [Phase 11 — Pre-flight Check Before Init](#phase-11--pre-flight-check-before-init)
 - [Phase 12 — Initialize Control Plane](#phase-12--initialize-control-plane)
 - [Phase 13 — Configure kubectl](#phase-13--configure-kubectl)
 - [Phase 14 — Install Calico CNI](#phase-14--install-calico-cni)
@@ -91,7 +95,7 @@ Windows Host
 
 ## Phase 0 — VirtualBox VM Setup
 
-Create **two** Ubuntu VMs in VirtualBox with the following resources each:
+Create two Ubuntu VMs in VirtualBox with the following resources each:
 
 | Setting | Control Plane | Worker |
 |---|---|---|
@@ -106,22 +110,22 @@ Create **two** Ubuntu VMs in VirtualBox with the following resources each:
 
 ## Phase 1 — VirtualBox Networking
 
-Proper networking is **critical**. Each VM needs **two** network adapters.
+Proper networking is critical. Each VM needs **two network adapters**.
 
-Go to: `VirtualBox → VM → Settings → Network`
+Go to: **VirtualBox → VM → Settings → Network**
 
-### Adapter 1 — Internet Access
+**Adapter 1 — Internet Access**
 ```
 Attached to: NAT
 ```
 
-### Adapter 2 — Host-only Communication
+**Adapter 2 — Host-only Communication**
 ```
 Attached to: Host-only Adapter
 Name       : vboxnet0
 ```
 
-**Resulting topology:**
+Resulting topology:
 
 ```
 Internet
@@ -139,6 +143,8 @@ Ubuntu Master   Ubuntu Worker
          Host-only Network
 ```
 
+> ⚠️ **CIDR note:** The host-only network `192.168.56.0/24` will overlap with the default Calico pod CIDR `192.168.0.0/16`. It works, but if you want clean separation, use `--pod-network-cidr=10.244.0.0/16` in Phase 12 instead. This guide uses `10.244.0.0/16` to avoid the overlap.
+
 ---
 
 ## Phase 2 — Find Network Interfaces
@@ -150,6 +156,7 @@ ip addr
 ```
 
 You'll typically see two interfaces, e.g.:
+
 - `enp0s3` — NAT (internet)
 - `enp0s8` — Host-only (cluster communication)
 
@@ -160,7 +167,7 @@ ip route
 hostname -I
 ```
 
-**IP assignments for this lab:**
+IP assignments for this lab:
 
 | Node | IP |
 |---|---|
@@ -173,7 +180,7 @@ hostname -I
 
 ## Phase 3 — Set Hostnames
 
-### On Control Plane
+**On Control Plane:**
 
 ```bash
 sudo hostnamectl set-hostname k8s-master
@@ -181,7 +188,7 @@ hostname
 # Expected: k8s-master
 ```
 
-### On Worker
+**On Worker:**
 
 ```bash
 sudo hostnamectl set-hostname k8s-worker
@@ -206,7 +213,7 @@ Add these lines:
 192.168.56.110 k8s-worker
 ```
 
-**Verify connectivity:**
+Verify connectivity:
 
 ```bash
 # From master
@@ -236,7 +243,7 @@ Reconnect after reboot.
 
 ## Phase 6 — Disable Swap
 
-> ⚠️ Kubernetes requires swap to be **disabled**.
+> ⚠️ Kubernetes requires swap to be disabled.
 
 Run on **both nodes**:
 
@@ -244,14 +251,14 @@ Run on **both nodes**:
 sudo swapoff -a
 ```
 
-**Verify:**
+Verify:
 
 ```bash
 free -h
 # Swap line should show 0B
 ```
 
-**Make it permanent** — open fstab:
+Make it permanent — open fstab:
 
 ```bash
 sudo nano /etc/fstab
@@ -282,7 +289,7 @@ sudo modprobe overlay
 sudo modprobe br_netfilter
 ```
 
-**Make persistent:**
+Make persistent:
 
 ```bash
 cat <<EOF | sudo tee /etc/modules-load.d/k8s.conf
@@ -291,7 +298,7 @@ br_netfilter
 EOF
 ```
 
-**Verify:**
+Verify:
 
 ```bash
 lsmod | grep overlay
@@ -318,7 +325,7 @@ Apply:
 sudo sysctl --system
 ```
 
-**Verify:**
+Verify:
 
 ```bash
 sysctl net.ipv4.ip_forward
@@ -334,6 +341,8 @@ sysctl net.bridge.bridge-nf-call-iptables
 
 Kubernetes needs a container runtime. We use **containerd**.
 
+> 📌 Docker is not required. containerd is the runtime; Docker is only useful later if you want to build images for CI/CD (covered in "What's Next").
+
 Run on **both nodes**:
 
 ```bash
@@ -341,14 +350,14 @@ sudo apt update
 sudo apt install -y containerd
 ```
 
-**Configure:**
+Configure:
 
 ```bash
 sudo mkdir -p /etc/containerd
 containerd config default | sudo tee /etc/containerd/config.toml
 ```
 
-**Enable SystemdCgroup** — open the config:
+Enable SystemdCgroup — open the config:
 
 ```bash
 sudo nano /etc/containerd/config.toml
@@ -364,7 +373,7 @@ SystemdCgroup = false
 SystemdCgroup = true
 ```
 
-**Restart and enable:**
+Restart and enable:
 
 ```bash
 sudo systemctl restart containerd
@@ -384,13 +393,12 @@ We need three tools:
 | `kubeadm` | Creates and configures the Kubernetes cluster |
 | `kubelet` | Agent running on every node |
 | `kubectl` | CLI for managing Kubernetes |
-| `docker.io` | docker manage |
 
 Install on **both nodes**.
 
 > 📌 **Important:** Use the [official Kubernetes documentation](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/) for the current stable minor version repository URL and installation steps. Repository URLs change across versions — do not rely on outdated tutorials.
 
-**General steps (check official docs for current commands):**
+General steps (check official docs for current commands):
 
 ```bash
 # 1. Install dependencies
@@ -407,43 +415,69 @@ echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] \
 
 # 3. Install packages
 sudo apt-get update
-sudo apt-get install -y kubelet kubeadm kubectl docker.io
+sudo apt-get install -y kubelet kubeadm kubectl
 
 # 4. Pin versions to prevent accidental upgrades
 sudo apt-mark hold kubelet kubeadm kubectl
 
 # 5. Enable kubelet
 sudo systemctl enable --now kubelet
-
-# 6. Start docker
-sudo systemctl start docker && sudo systemctl enable docker 
 ```
 
 > 🔗 Always refer to: https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/
 
+> ℹ️ **Note:** kubelet will crash-loop (restart every few seconds) until `kubeadm init` or `kubeadm join` runs. This is expected — don't try to fix it.
+
 ---
 
-## Phase 11 — Verify Container Runtime
+## Phase 11 — Pre-flight Check Before Init
 
-On **both nodes**:
+Before initializing the control plane, confirm everything is in order. Run on **k8s-master only**:
 
 ```bash
-sudo systemctl status containerd
-sudo systemctl status kubelet
+# Hostname
+hostname
+# Expected: k8s-master
+
+# Host-only IP
+ip addr show enp0s8 | grep 192.168.56.109
+
+# Swap off
+free -h
+# Swap line should show 0B
+
+# IP forwarding on
+sysctl net.ipv4.ip_forward
+# Expected: net.ipv4.ip_forward = 1
+
+# bridge-nf-call-iptables on
+sysctl net.bridge.bridge-nf-call-iptables
+# Expected: 1
+
+# Modules loaded
+lsmod | grep -E 'overlay|br_netfilter'
+
+# containerd running
+systemctl is-active containerd
+# Expected: active
+
+# kubelet enabled (may be restarting — that's fine)
+systemctl is-enabled kubelet
+# Expected: enabled
 ```
 
-> ℹ️ `kubelet` may not be fully running yet — that's expected until the cluster is initialized.
+> If any of these fail, fix them before proceeding. Most `kubeadm init` failures trace back to one of these.
 
 ---
 
 ## Phase 12 — Initialize Control Plane
 
-> ⚠️ Run **ONLY on k8s-master**.
+> ⚠️ Run **ONLY** on **k8s-master**.
 
 ```bash
 sudo kubeadm init \
   --apiserver-advertise-address=192.168.56.109 \
-  --pod-network-cidr=192.168.0.0/16
+  --pod-network-cidr=10.244.0.0/16
 ```
 
 This takes a few minutes. On success you'll see:
@@ -468,6 +502,12 @@ If you lose the join command, regenerate it:
 kubeadm token create --print-join-command
 ```
 
+> ⏰ Tokens expire after 24 hours. For a lab, you can create a non-expiring token with:
+
+```bash
+kubeadm token create --ttl 0 --print-join-command
+```
+
 ---
 
 ## Phase 13 — Configure kubectl
@@ -480,7 +520,7 @@ sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
 sudo chown $(id -u):$(id -g) $HOME/.kube/config
 ```
 
-**Test:**
+Test:
 
 ```bash
 kubectl get nodes
@@ -494,6 +534,8 @@ k8s-master   NotReady   control-plane   ...
 ```
 
 > `NotReady` is expected — we haven't installed the network plugin yet.
+
+> 💡 Worker nodes do not need `kubectl` for this lab. If you want `kubectl` on the worker, copy `/etc/kubernetes/kubelet.conf` and configure a limited kubeconfig — but it's not required to run the cluster.
 
 ---
 
@@ -512,21 +554,30 @@ Calico
 Node network
 ```
 
-> 📌 Use the [official Calico documentation](https://docs.tigera.io/calico/latest/getting-started/kubernetes/self-managed-onprem/onpremises) for the version compatible with your Kubernetes version.
+> 📌 Use the [official Calico documentation](https://docs.tigera.io/calico/latest/getting-started/kubernetes/) for the version compatible with your Kubernetes version.
 
-**General steps:**
+General steps:
 
 ```bash
 # Install the Tigera Calico operator
 kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.29.0/manifests/tigera-operator.yaml
 
-# Install Calico custom resources
-kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.29.0/manifests/custom-resources.yaml
+# Download the custom resources manifest so you can edit it if needed
+curl -O https://raw.githubusercontent.com/projectcalico/calico/v3.29.0/manifests/custom-resources.yaml
+
+# If your pod CIDR is NOT 192.168.0.0/16, edit the ipPool cidr:
+#   spec.calicoNetwork.ipPools[].cidr
+# For this guide (10.244.0.0/16):
+#   cidr: 10.244.0.0/16
+nano custom-resources.yaml
+
+# Apply it
+kubectl create -f custom-resources.yaml
 ```
 
-> ⚙️ If you used `--pod-network-cidr=192.168.0.0/16`, the default Calico config matches. Otherwise adjust `custom-resources.yaml` to match your CIDR.
+> ⚙️ If you used `--pod-network-cidr=10.244.0.0/16` (recommended in this guide), you **must** update `custom-resources.yaml` — the default Calico ipPool is `192.168.0.0/16`.
 
-**Wait for all pods to become ready:**
+Wait for all pods to become ready:
 
 ```bash
 kubectl get pods -A
@@ -562,7 +613,7 @@ On success:
 This node has joined the cluster
 ```
 
-> ⏰ Tokens expire after 24 hours. Regenerate with `kubeadm token create --print-join-command` on the master if needed.
+> ⏰ If the token expired, regenerate on the master with `kubeadm token create --print-join-command`.
 
 ---
 
@@ -596,14 +647,14 @@ This shows:
 
 | Column | Description |
 |---|---|
-| NAME | Node name |
-| STATUS | Ready / NotReady |
-| ROLES | control-plane / worker |
-| VERSION | Kubernetes version |
-| INTERNAL-IP | Node IP address |
-| OS-IMAGE | Ubuntu version |
-| KERNEL-VERSION | Linux kernel |
-| CONTAINER-RUNTIME | containerd version |
+| `NAME` | Node name |
+| `STATUS` | Ready / NotReady |
+| `ROLES` | control-plane / worker |
+| `VERSION` | Kubernetes version |
+| `INTERNAL-IP` | Node IP address |
+| `OS-IMAGE` | Ubuntu version |
+| `KERNEL-VERSION` | Linux kernel |
+| `CONTAINER-RUNTIME` | containerd version |
 
 > 💼 This command is commonly asked about in Kubernetes interviews.
 
@@ -624,7 +675,7 @@ You'll see system components:
 | Component | Role |
 |---|---|
 | `coredns` | DNS resolution inside the cluster |
-| `kube-proxy` | Network proxy on each node |
+| `kube-proxy` | Network proxy on each node (runs as a DaemonSet) |
 | `calico-*` | Pod networking |
 | `kube-apiserver` | API server |
 | `kube-scheduler` | Pod scheduling |
@@ -636,33 +687,33 @@ You'll see system components:
 ## Phase 19 — Kubernetes Architecture
 
 ```
-                   kubectl
-                      │
-                      ▼
-              kube-apiserver
-                      │
-       ┌──────────────┼──────────────┐
-       │              │              │
-      etcd       scheduler     controller-manager
+               kubectl
+                  │
+                  ▼
+          kube-apiserver
+                  │
+   ┌──────────────┼──────────────┐
+   │              │              │
+  etcd       scheduler     controller-manager
+   │
+   ▼
+┌───────────────┐
+│ Control Plane │
+└───────────────┘
        │
+       │ Kubernetes API
        ▼
- ┌───────────────┐
- │ Control Plane │
- └───────────────┘
-         │
-         │ Kubernetes API
-         ▼
- ┌────────────────────┐
- │     Worker Node    │
- │                    │
- │ kubelet            │
- │ kube-proxy         │
- │ containerd         │
- │                    │
- │ ┌────┐ ┌────┐      │
- │ │Pod │ │Pod │      │
- │ └────┘ └────┘      │
- └────────────────────┘
+┌────────────────────┐
+│     Worker Node    │
+│                    │
+│ kubelet            │
+│ kube-proxy         │
+│ containerd         │
+│                    │
+│ ┌────┐ ┌────┐      │
+│ │Pod │ │Pod │      │
+│ └────┘ └────┘      │
+└────────────────────┘
 ```
 
 | Component | Location | Role |
@@ -672,7 +723,7 @@ You'll see system components:
 | `kube-scheduler` | Control Plane | Assigns Pods to nodes based on resources |
 | `kube-controller-manager` | Control Plane | Runs reconciliation loops (deployments, replicasets, etc.) |
 | `kubelet` | Every Node | Ensures containers in Pods are running |
-| `kube-proxy` | Every Node | Manages networking rules for Services |
+| `kube-proxy` | Every Node | Manages networking rules for Services (DaemonSet) |
 | `containerd` | Every Node | Container runtime that runs the actual containers |
 
 ---
@@ -681,23 +732,23 @@ You'll see system components:
 
 After completing the base cluster setup, continue with:
 
-- [ ] **Deploy Nginx** — Your first workload
-- [ ] **Services** — Expose Pods inside and outside the cluster
-- [ ] **ConfigMaps & Secrets** — Manage configuration and sensitive data
-- [ ] **Deployments** — Declarative Pod management
-- [ ] **Scaling** — Manual and automatic scaling
-- [ ] **Rolling Updates & Rollbacks** — Zero-downtime deployments
-- [ ] **Ingress** — HTTP routing into the cluster
-- [ ] **Storage (PV/PVC)** — Persistent data for stateful apps
-- [ ] **RBAC** — Role-based access control
-- [ ] **NetworkPolicies** — Pod-level firewall rules
-- [ ] **HPA** — Horizontal Pod Autoscaler
-- [ ] **Troubleshooting** — Debugging real cluster issues
-- [ ] **Cockpit** — GUI management for the cluster nodes
-- [ ] **Argo CD** — GitOps continuous delivery
-- [ ] **Jenkins** — CI/CD pipelines
-- [ ] **Docker** — Building images
-- [ ] **Trivy** — Container image vulnerability scanning
+- [ ] Deploy Nginx — Your first workload
+- [ ] Services — Expose Pods inside and outside the cluster
+- [ ] ConfigMaps & Secrets — Manage configuration and sensitive data
+- [ ] Deployments — Declarative Pod management
+- [ ] Scaling — Manual and automatic scaling
+- [ ] Rolling Updates & Rollbacks — Zero-downtime deployments
+- [ ] Ingress — HTTP routing into the cluster
+- [ ] Storage (PV/PVC) — Persistent data for stateful apps
+- [ ] RBAC — Role-based access control
+- [ ] NetworkPolicies — Pod-level firewall rules
+- [ ] HPA — Horizontal Pod Autoscaler
+- [ ] Troubleshooting — Debugging real cluster issues
+- [ ] Cockpit — GUI management for the cluster nodes
+- [ ] Argo CD — GitOps continuous delivery
+- [ ] Jenkins — CI/CD pipelines
+- [ ] Docker — Building images (only needed here, not for the cluster runtime)
+- [ ] Trivy — Container image vulnerability scanning
 
 ---
 
@@ -723,6 +774,9 @@ kubectl logs <pod-name> -n <namespace>
 
 # Regenerate join command (run on master)
 kubeadm token create --print-join-command
+
+# Non-expiring join token (lab only)
+kubeadm token create --ttl 0 --print-join-command
 
 # Check component status
 sudo systemctl status kubelet
@@ -752,13 +806,16 @@ kubectl delete -f <file>.yaml
 
 | Issue | Cause | Fix |
 |---|---|---|
-| `kubectl get nodes` shows NotReady | CNI not installed | Install Calico |
+| `kubectl get nodes` shows `NotReady` | CNI not installed | Install Calico |
 | Worker can't join | Token expired | Run `kubeadm token create --print-join-command` on master |
 | kubelet not starting | Swap enabled | Run `sudo swapoff -a` and check `/etc/fstab` |
-| Pods stuck in Pending | No worker joined, or taints | Check `kubectl describe pod <name>` |
+| kubelet crash-looping before init | Normal — no cluster config yet | Run `kubeadm init` / `kubeadm join` |
+| Pods stuck in `Pending` | No worker joined, or taints | Check `kubectl describe pod <name>` |
+| Pods stuck in `ContainerCreating` | CNI not ready or wrong CIDR | Check Calico pods and `custom-resources.yaml` ipPool CIDR |
 | containerd not running | Config issue | Check `sudo systemctl status containerd` and logs |
 | `br_netfilter` errors | Module not loaded | Run `sudo modprobe br_netfilter` |
+| Calico pods CrashLooping | Pod CIDR mismatch | Edit `custom-resources.yaml` ipPool to match `--pod-network-cidr` |
 
 ---
 
-*Built for learning real Kubernetes administration on a local VirtualBox lab.*
+> Built for learning real Kubernetes administration on a local VirtualBox lab.
