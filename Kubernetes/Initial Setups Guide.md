@@ -1003,3 +1003,332 @@ kubectl delete -f <file>.yaml
 ---
 
 > Built for learning real Kubernetes administration on a local VirtualBox lab.
+Phase 8 — Kubernetes Networking (sysctl)
+
+Run on both nodes.
+
+First, make sure the required kernel modules are loaded:
+
+sudo modprobe overlay
+sudo modprobe br_netfilter
+
+Configure the required Kubernetes networking parameters:
+
+cat <<EOF | sudo tee /etc/sysctl.d/k8s.conf
+net.bridge.bridge-nf-call-iptables = 1
+net.bridge.bridge-nf-call-ip6tables = 1
+net.ipv4.ip_forward = 1
+EOF
+
+Apply the configuration:
+
+sudo sysctl --system
+
+Verify:
+
+sysctl net.ipv4.ip_forward
+
+Expected:
+
+net.ipv4.ip_forward = 1
+
+Verify bridge traffic:
+
+sysctl net.bridge.bridge-nf-call-iptables
+
+Expected:
+
+net.bridge.bridge-nf-call-iptables = 1
+
+You can also verify the modules:
+
+lsmod | grep -E 'overlay|br_netfilter'
+Phase 9 — Install containerd
+
+Kubernetes requires a container runtime. In this setup, we use containerd.
+
+Docker is not required as the Kubernetes container runtime. Docker can still be used later to build application images for your CI/CD pipeline.
+
+Run on both nodes:
+
+sudo apt update
+sudo apt install -y containerd
+
+Create the containerd configuration directory:
+
+sudo mkdir -p /etc/containerd
+
+Generate the default configuration:
+
+containerd config default | sudo tee /etc/containerd/config.toml
+
+Open the configuration:
+
+sudo nano /etc/containerd/config.toml
+
+Find:
+
+SystemdCgroup = false
+
+Change it to:
+
+SystemdCgroup = true
+
+Save the file.
+
+Restart and enable containerd:
+
+sudo systemctl restart containerd
+sudo systemctl enable containerd
+
+Verify:
+
+sudo systemctl status containerd
+
+Expected:
+
+active (running)
+
+You can also verify with:
+
+sudo systemctl is-active containerd
+
+Expected:
+
+active
+Phase 10 — Install Kubernetes Packages
+
+Kubernetes requires three main components:
+
+Component	Purpose
+kubeadm	Bootstraps and configures the Kubernetes cluster
+kubelet	Agent that runs on every Kubernetes node
+kubectl	Command-line tool for managing the cluster
+
+Install them on both nodes.
+
+Important: Kubernetes package repositories are version-specific. Do not blindly copy an old repository URL such as v1.32. Select the Kubernetes minor version you want to install and use the corresponding repository from the official Kubernetes documentation.
+
+Install prerequisites:
+
+sudo apt-get update
+sudo apt-get install -y apt-transport-https ca-certificates curl gpg
+
+Create the keyrings directory:
+
+sudo mkdir -p -m 755 /etc/apt/keyrings
+
+For example, if you have decided to use Kubernetes v1.34, configure the corresponding repository:
+
+curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.34/deb/Release.key | \
+  sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+
+Then:
+
+echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] \
+https://pkgs.k8s.io/core:/stable:/v1.34/deb/ /' | \
+sudo tee /etc/apt/sources.list.d/kubernetes.list
+
+Replace v1.34 with the minor version you have selected. Check the official Kubernetes documentation before installation.
+
+Install:
+
+sudo apt-get update
+sudo apt-get install -y kubelet kubeadm kubectl
+
+Prevent automatic upgrades:
+
+sudo apt-mark hold kubelet kubeadm kubectl
+
+Enable kubelet:
+
+sudo systemctl enable --now kubelet
+
+Verify:
+
+sudo systemctl is-enabled kubelet
+
+Expected:
+
+enabled
+
+Note: Before kubeadm init or kubeadm join is executed, kubelet may repeatedly restart. This is expected because kubelet is waiting for Kubernetes configuration.
+
+Official installation documentation:
+
+Kubernetes — Installing kubeadm
+
+Phase 11 — Pre-flight Check Before Init
+
+Before initializing the control plane, perform these checks on k8s-master.
+
+1. Verify hostname
+hostname
+
+Expected:
+
+k8s-master
+2. Verify the control-plane IP
+
+If your VirtualBox interface is enp0s8:
+
+ip addr show enp0s8
+
+Verify that the expected IP is present:
+
+192.168.56.109
+
+If your interface has a different name, use ip addr to identify it.
+
+3. Verify swap is disabled
+free -h
+
+The Swap row should show:
+
+0B
+
+You can also verify:
+
+swapon --show
+
+Expected: no output.
+
+4. Verify IP forwarding
+sysctl net.ipv4.ip_forward
+
+Expected:
+
+net.ipv4.ip_forward = 1
+5. Verify bridge networking
+sysctl net.bridge.bridge-nf-call-iptables
+
+Expected:
+
+net.bridge.bridge-nf-call-iptables = 1
+6. Verify kernel modules
+lsmod | grep -E 'overlay|br_netfilter'
+
+You should see both modules.
+
+7. Verify containerd
+systemctl is-active containerd
+
+Expected:
+
+active
+8. Verify kubelet
+systemctl is-enabled kubelet
+
+Expected:
+
+enabled
+
+If all checks pass, proceed to kubeadm init.
+
+Phase 12 — Initialize Control Plane
+
+⚠️ Run this command ONLY on k8s-master.
+
+For your configuration:
+
+sudo kubeadm init \
+  --apiserver-advertise-address=192.168.56.109 \
+  --pod-network-cidr=10.244.0.0/16
+
+Here:
+
+192.168.56.109
+
+is the control-plane IP.
+
+And:
+
+10.244.0.0/16
+
+is the Pod CIDR.
+
+Important: The Pod CIDR must match the networking plugin you install later. 10.244.0.0/16 is commonly used with Flannel.
+
+If initialization succeeds, you should see:
+
+Your Kubernetes control-plane has initialized successfully!
+
+You will also receive a worker-node join command similar to:
+
+kubeadm join 192.168.56.109:6443 \
+  --token <token> \
+  --discovery-token-ca-cert-hash sha256:<hash>
+
+Save this command.
+
+You will execute it on the worker node in the next phase.
+
+If you lose the command, regenerate it on the control-plane node:
+
+sudo kubeadm token create --print-join-command
+
+For a temporary lab, you can create a token with no expiration:
+
+sudo kubeadm token create --ttl 0 --print-join-command
+
+For production environments, avoid creating unnecessarily long-lived bootstrap tokens.
+
+Phase 13 — Configure kubectl
+
+Still on k8s-master, configure kubectl for your current user:
+
+mkdir -p $HOME/.kube
+sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+sudo chown $(id -u):$(id -g) $HOME/.kube/config
+
+Test:
+
+kubectl get nodes
+
+Before installing the CNI plugin, you will typically see:
+
+NAME         STATUS     ROLES           AGE
+k8s-master   NotReady   control-plane   ...
+Why is the node NotReady?
+
+This is expected at this stage.
+
+You have created the Kubernetes control plane, but you have not installed the Pod network/CNI plugin yet.
+
+The next step is therefore:
+
+Control Plane initialized
+        ↓
+kubectl configured
+        ↓
+Worker joins cluster
+        ↓
+Install CNI
+        ↓
+Nodes become Ready
+
+Once the CNI is installed, verify again:
+
+kubectl get nodes
+
+Expected:
+
+NAME         STATUS   ROLES           AGE
+k8s-master   Ready    control-plane   ...
+k8s-worker   Ready    <none>          ...
+One important correction to your original guide
+
+Your overall sequence is good:
+
+Phase 8  → Networking/sysctl
+Phase 9  → containerd
+Phase 10 → kubeadm/kubelet/kubectl
+Phase 11 → Pre-flight checks
+Phase 12 → kubeadm init
+Phase 13 → kubectl configuration
+
+The main thing I would not hard-code in a permanent guide is:
+
+v1.32
+
+because Kubernetes package repositories are tied to minor versions. Instead, explicitly state that the reader must select the desired supported Kubernetes minor version and use its corresponding pkgs.k8s.io repository.
